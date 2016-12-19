@@ -181,8 +181,8 @@ pub trait Resources:          Clone + Hash + Debug + Eq + PartialEq + Any {
     type RenderTargetView:    Clone + Hash + Debug + Eq + PartialEq + Any + Send + Sync + Copy;
     type DepthStencilView:    Clone + Hash + Debug + Eq + PartialEq + Any + Send + Sync;
     type Sampler:             Clone + Hash + Debug + Eq + PartialEq + Any + Send + Sync + Copy;
-    type Fence:               Clone + Hash + Debug + Eq + PartialEq + Any + Fence;
-    type Mapping:             Debug + Any + mapping::Gate<Self>;
+    type Fence:               Clone + Hash + Debug + Eq + PartialEq + Any + Send + Sync;
+    type Mapping:             Clone + Hash + Debug + Eq + PartialEq + Any + Send + Sync + mapping::Gate<Self>;
 }
 
 /// A `Device` is responsible for submitting `CommandBuffer`s to the GPU. 
@@ -212,12 +212,33 @@ pub trait Device: Sized {
                      after: Option<handle::Fence<Self::Resources>>)
                      -> handle::Fence<Self::Resources>;
 
+    /// Stalls the current thread until the fence is satisfied
+    fn wait_fence(&mut self, &handle::Fence<Self::Resources>);
+
+    /// Acquire a mapping Reader
+    fn read_mapping<'a, 'b, M, T>(&'a mut self, m: &'b mut M)
+                                  -> mapping::Reader<'b, Self::Resources, T>
+        where M: mapping::Readable<Self::Resources, T>, T: Copy
+    {
+        unsafe { m.read(|fence| self.wait_fence(&fence), |_| {}) }
+    }
+
+    /// Acquire a mapping Writer
+    fn write_mapping<'a, 'b, M, T>(&'a mut self, m: &'b mut M)
+                                   -> mapping::Writer<'b, Self::Resources, T>
+        where M: mapping::Writable<Self::Resources, T>, T: Copy
+    {
+        unsafe { m.write(|fence| self.wait_fence(&fence), |_| {}) }
+    }
+
+    /// Acquire a mapping reader & writer
+    fn rw_mapping<'a, 'b, T>(&'a mut self, m: &'b mut mapping::RWable<Self::Resources, T>)
+                     -> mapping::RWer<'b, Self::Resources, T>
+        where T: Copy
+    {
+        unsafe { m.read_write(|fence| self.wait_fence(&fence), |_| {}) }
+    }
+
     /// Cleanup unused resources. This should be called between frames. 
     fn cleanup(&mut self);
-}
-
-/// Operations that must be provided by a fence.
-pub trait Fence {
-    /// Stalls the current thread until the fence is satisfied
-    fn wait(&self);
 }

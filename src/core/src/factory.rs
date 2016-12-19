@@ -261,9 +261,9 @@ pub trait Factory<R: Resources> {
     fn map_buffer_raw(&mut self, &handle::RawBuffer<R>, memory::Access)
                       -> Result<handle::RawMapping<R>, mapping::Error>;
     fn map_buffer_readable<T: Copy>(&mut self, &handle::Buffer<R, T>)
-                                    -> Result<mapping::Readable<R, T>, mapping::Error>;
+                                    -> Result<mapping::ReadableOnly<R, T>, mapping::Error>;
     fn map_buffer_writable<T: Copy>(&mut self, &handle::Buffer<R, T>)
-                                    -> Result<mapping::Writable<R, T>, mapping::Error>;
+                                    -> Result<mapping::WritableOnly<R, T>, mapping::Error>;
     fn map_buffer_rw<T: Copy>(&mut self, &handle::Buffer<R, T>)
                               -> Result<mapping::RWable<R, T>, mapping::Error>;
 
