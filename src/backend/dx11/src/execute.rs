@@ -38,6 +38,24 @@ fn copy_buffer(context: *mut winapi::ID3D11DeviceContext,
     };
 }
 
+fn copy_buffer_to_texture(context: *mut winapi::ID3D11DeviceContext,
+                          src: &Buffer, src_offset: UINT,
+                          dst: &Texture,
+                          kind: tex::Kind,
+                          face: Option<tex::CubeFace>,
+                          img: &tex::RawImageInfo) {
+    unimplemented!()
+}
+
+fn copy_texture_to_buffer(context: *mut winapi::ID3D11DeviceContext,
+                          src: &Texture,
+                          kind: tex::Kind,
+                          face: Option<tex::CubeFace>,
+                          img: &tex::RawImageInfo,
+                          dst: &Buffer, dst_offset: UINT) {
+    unimplemented!()
+}
+
 pub fn update_buffer(context: *mut winapi::ID3D11DeviceContext, buffer: &Buffer,
                      data: &[u8], offset_bytes: usize) {
     let dst_resource = (buffer.0).0 as *mut winapi::ID3D11Resource;
@@ -201,6 +219,12 @@ pub fn process(ctx: *mut winapi::ID3D11DeviceContext, command: &command::Command
         CopyBuffer(ref src, ref dst, src_offset, dst_offset, size) => {
             copy_buffer(ctx, src, dst, src_offset, dst_offset, size);
         },
+        CopyBufferToTexture(ref src, src_offset, ref dst, kind, face, ref img) => {
+            copy_buffer_to_texture(ctx, src, src_offset, dst, kind, face, img);
+        }
+        CopyTextureToBuffer(ref src, kind, face, ref img, ref dst, dst_offset) => {
+            copy_texture_to_buffer(ctx, src, kind, face, img, dst, dst_offset);
+        }
         UpdateBuffer(ref buffer, pointer, offset) => {
             let data = data_buf.get(pointer);
             update_buffer(ctx, buffer, data, offset);

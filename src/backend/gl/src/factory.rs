@@ -178,8 +178,8 @@ impl Factory {
         mapping_access.map(|access| {
             let (kind, ptr) = if self.share.private_caps.buffer_storage_supported {
                 let gl_access = access_to_map_bits(access) |
-                                gl::MAP_PERSISTENT_BIT |
-                                gl::MAP_FLUSH_EXPLICIT_BIT;
+                                gl::MAP_PERSISTENT_BIT;
+                                // gl::MAP_FLUSH_EXPLICIT_BIT;
                 let size = info.size as isize;
                 let ptr = unsafe {
                     gl.BindBuffer(target, buffer);

@@ -189,7 +189,7 @@ pub fn create_main_targets_raw(dim: texture::Dimensions, color_format: format::S
             levels: 1,
             kind: texture::Kind::D2(dim.0, dim.1, dim.3),
             format: color_format,
-            bind: RENDER_TARGET,
+            bind: RENDER_TARGET | memory::TRANSFER_SRC,
             usage: memory::Usage::Data,
         },
     );
@@ -199,7 +199,7 @@ pub fn create_main_targets_raw(dim: texture::Dimensions, color_format: format::S
             levels: 1,
             kind: texture::Kind::D2(dim.0, dim.1, dim.3),
             format: depth_format,
-            bind: DEPTH_STENCIL,
+            bind: DEPTH_STENCIL | memory::TRANSFER_SRC,
             usage: memory::Usage::Data,
         },
     );
@@ -588,6 +588,12 @@ impl Device {
                                          dst_offset,
                                          size);
                 }
+            },
+            Command::CopyBufferToTexture(src, src_offset, dst, kind, face, img) => {
+                tex::copy_from_buffer(&self.share.context, dst, kind, face, &img, src, src_offset);
+            },
+            Command::CopyTextureToBuffer(src, kind, face, img, dst, dst_offset) => {
+                tex::copy_to_buffer(&self.share.context, src, kind, face, &img, dst, dst_offset);
             },
             Command::UpdateBuffer(buffer, pointer, offset) => {
                 let data = data_buf.get(pointer);

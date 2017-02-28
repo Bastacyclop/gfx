@@ -76,6 +76,10 @@ pub enum Command {
     SetDepthStencil(*const ID3D11DepthStencilState, UINT),
     SetBlend(*const ID3D11BlendState, [FLOAT; 4], UINT),
     CopyBuffer(Buffer, Buffer, UINT, UINT, UINT),
+    CopyBufferToTexture(Buffer, UINT,
+                        Texture, tex::Kind, Option<tex::CubeFace>, tex::RawImageInfo),
+    CopyTextureToBuffer(Texture, tex::Kind, Option<tex::CubeFace>, tex::RawImageInfo,
+                        Buffer, UINT),
     // resource updates
     UpdateBuffer(Buffer, DataPointer, usize),
     UpdateTexture(Texture, tex::Kind, Option<tex::CubeFace>, DataPointer, tex::RawImageInfo),
@@ -320,6 +324,29 @@ impl<P: Parser> command::Buffer<Resources> for CommandBuffer<P> {
                                               src_offset_bytes as UINT,
                                               dst_offset_bytes as UINT,
                                               size_bytes as UINT));
+    }
+
+    fn copy_buffer_to_texture(&mut self, src: Buffer, src_offset_bytes: usize,
+                              dst: Texture,
+                              kind: tex::Kind,
+                              face: Option<tex::CubeFace>,
+                              img: tex::RawImageInfo) {
+        self.parser.parse(Command::CopyBufferToTexture(
+            src, src_offset_bytes as UINT,
+            dst, kind, face, img,
+        ));
+    }
+
+    fn copy_texture_to_buffer(&mut self,
+                              src: Texture,
+                              kind: tex::Kind,
+                              face: Option<tex::CubeFace>,
+                              img: tex::RawImageInfo,
+                              dst: Buffer, dst_offset_bytes: usize) {
+        self.parser.parse(Command::CopyTextureToBuffer(
+            src, kind, face, img,
+            dst, dst_offset_bytes as UINT,
+        ));
     }
 
     fn update_buffer(&mut self, buf: Buffer, data: &[u8], offset: usize) {

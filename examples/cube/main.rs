@@ -16,9 +16,12 @@ extern crate cgmath;
 #[macro_use]
 extern crate gfx;
 extern crate gfx_app;
+extern crate winit;
+extern crate image;
 
 pub use gfx_app::{ColorFormat, DepthFormat};
 use gfx::{Bundle, texture};
+use gfx::format::{Formatted, SurfaceTyped};
 
 use cgmath::{Point3, Vector3};
 use cgmath::{Transform, AffineMatrix3};
@@ -59,8 +62,20 @@ impl Vertex {
 }
 
 //----------------------------------------
+
+type DataType = <<ColorFormat as Formatted>::Surface as SurfaceTyped>::DataType;
+
 struct App<R: gfx::Resources>{
     bundle: Bundle<R, pipe::Data<R>>,
+    download: gfx::handle::Buffer<R, DataType>,
+    screenshot: Screenshot,
+}
+
+#[derive(PartialEq)]
+enum Screenshot {
+    None,
+    Ready,
+    Some,
 }
 
 impl<R: gfx::Resources> gfx_app::Application<R> for App<R> {
@@ -135,6 +150,10 @@ impl<R: gfx::Resources> gfx_app::Application<R> for App<R> {
             texture::Kind::D2(1, 1, texture::AaMode::Single), &[&texels]
             ).unwrap();
 
+        let (w, h, _, _) = window_targets.color.get_dimensions();
+        let download = factory.create_download_buffer(w as usize * h as usize)
+            .unwrap();
+
         let sinfo = texture::SamplerInfo::new(
             texture::FilterMethod::Bilinear,
             texture::WrapMode::Clamp);
@@ -158,6 +177,8 @@ impl<R: gfx::Resources> gfx_app::Application<R> for App<R> {
 
         App {
             bundle: Bundle::new(slice, pso, data),
+            download: download,
+            screenshot: Screenshot::None,
         }
     }
 
@@ -167,15 +188,81 @@ impl<R: gfx::Resources> gfx_app::Application<R> for App<R> {
         encoder.clear(&self.bundle.data.out_color, [0.1, 0.2, 0.3, 1.0]);
         encoder.clear_depth(&self.bundle.data.out_depth, 1.0);
         self.bundle.encode(encoder);
+
+        if self.screenshot == Screenshot::Ready {
+            use gfx::memory::Typed;
+
+            let (w, h, _, _) = self.bundle.data.out_color.get_dimensions();
+            encoder.copy_texture_to_buffer_raw(
+                self.bundle.data.out_color.raw().get_texture(),
+                None,
+                gfx::texture::RawImageInfo {
+                    xoffset: 0,
+                    yoffset: 0,
+                    zoffset: 0,
+                    width: w,
+                    height: h,
+                    depth: 0,
+                    format: ColorFormat::get_format(),
+                    mipmap: 0,
+                },
+                self.download.raw(),
+                0
+            ).unwrap();
+            println!("screenshot some");
+            self.screenshot = Screenshot::Some;
+        }
     }
 
-    fn on_resize(&mut self, window_targets: gfx_app::WindowTargets<R>) {
+    fn on_resize_ext<F: gfx::Factory<R>>(&mut self,
+                                         factory: &mut F,
+                                         window_targets: gfx_app::WindowTargets<R>) {
+        use gfx::traits::FactoryExt;
+
+        if self.screenshot == Screenshot::Some {
+            let (w, h, _, _) = self.bundle.data.out_depth.get_dimensions();
+            let reader = factory.read_mapping(&self.download).unwrap();
+            let mut data = Vec::with_capacity(w as usize * h as usize * 4);
+            for &v in reader.iter() {
+                if v[3] != 255 {
+                    println!("{:?}", v);
+                }
+                data.push(v[0]);
+                data.push(v[1]);
+                data.push(v[2]);
+                data.push(v[3]);
+            }
+            image::save_buffer("screen.png",
+                               &data,
+                               w as u32,
+                               h as u32,
+                               image::ColorType::RGBA(8)).unwrap();
+            println!("screenshot none");
+            self.screenshot = Screenshot::None;
+        }
+
         self.bundle.data.out_color = window_targets.color;
         self.bundle.data.out_depth = window_targets.depth;
+        let (w, h, _, _) = self.bundle.data.out_color.get_dimensions();
+        self.download = factory.create_download_buffer(w as usize * h as usize)
+            .unwrap();
 
         // In this example the transform is static except for window resizes.
         let proj = cgmath::perspective(cgmath::deg(45.0f32), window_targets.aspect_ratio, 1.0, 10.0);
         self.bundle.data.transform = (proj * default_view().mat).into();
+    }
+
+    fn on(&mut self, event: winit::Event) {
+        use winit::Event::*;
+        use winit::ElementState::*;
+        use winit::VirtualKeyCode::*;
+        match event {
+            KeyboardInput(Released, _, Some(S)) => {
+                println!("screenshot ready");
+                self.screenshot = Screenshot::Ready;
+            }
+            _ => {}
+        }
     }
 }
 
