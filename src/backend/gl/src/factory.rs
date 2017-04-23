@@ -133,6 +133,9 @@ impl Factory {
                 Upload => access_to_map_bits(memory::WRITE) | gl::MAP_PERSISTENT_BIT,
                 Download => access_to_map_bits(memory::READ) | gl::MAP_PERSISTENT_BIT,
             };
+            if (usage & 0x8000_0000) != 0 {
+                println!("GL_MAP_NOTIFY_EXPLICIT_BIT_VMWX");
+            }
             let size = if info.size == 0 {
                 // we are not allowed to pass size=0 into `glBufferStorage`
                 data_ptr = 0 as *const _;
